@@ -27,7 +27,7 @@ from CONSTANTS import *
 # ---------------------------------------------------------------------
 
 PROJECT_ROOT = Path(".")
-SCENARIO_NAME = "2_rnBurger20_eJS1"
+SCENARIO_NAME = "scenario_name"
 SCENARIO_DIR = PROJECT_ROOT / SCENARIO_NAME
 
 # Starting snapshot tag. Use "start" for the initial file or values such as
