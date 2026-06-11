@@ -5,7 +5,7 @@ This repository contains a cleaned Python driver for **SHARD**: a collision-reso
 This README describes practical use of the cleaned script:
 
 ```text
-SHARD_Rebound_cleaned.py
+SHARD_Rebound.py
 ```
 
 The code is intentionally procedural. There is no command-line interface. To run a different case, edit the **User-facing configuration** block near the top of the script.
