@@ -48,8 +48,9 @@ MIN_FRAGMENT_MASS_MEAR = 5.5e-4
 # the manuscript's activation prescription.
 ACTIVE_DEBRIS_MASS_MSUN = 3.0e-7
 
-# The SPH debris phase-space sample is clustered, then each raw cluster mass is
-# multiplied by this factor before the final normalization back to M_fr.
+# Fraction of the SPH debris budget retained as resolved N-body debris.
+# The removed fraction is treated as unresolved dust carrying the same mean
+# debris water fraction. Set to 1.0 for strict resolved mass conservation.
 DUST_MASS_RETENTION_FACTOR = 0.5
 KMEANS_RANDOM_STATE = 0
 
@@ -88,6 +89,10 @@ Nsaves = N_CHECKPOINTS
 scenario = str(SCENARIO_DIR)
 NGG = N_GAS_GIANTS
 MFM = MIN_FRAGMENT_MASS_MEAR
+
+if not 0.0 <= DUST_MASS_RETENTION_FACTOR <= 1.0:
+	raise ValueError("DUST_MASS_RETENTION_FACTOR must be between 0 and 1.")
+
 save_checkpoints = SAVE_CHECKPOINTS
 new_sim_warning = NEW_SIM_WARNING
 save_progess = SAVE_PROGRESS
@@ -282,8 +287,15 @@ def collision_solver(sim_pointer, collision):
 	for i in range(Nbig): survivors[i][2]=survivors[i][2]*mtot
 	mfr=mfr*mtot
 
-	# Reconstruct sub-resolution fragments when the debris reservoir exceeds MFM.
+	# Choose the number of debris clusters from the SPH debris budget, then
+	# retain only the configured fraction as resolved N-body debris. Applying the
+	# factor here, rather than to raw cluster weights, prevents later mass
+	# normalization from algebraically cancelling the dust prescription.
 	Nfr=int(mfr/(MFM*MEAR))
+	mfr=mfr*DUST_MASS_RETENTION_FACTOR
+	if mfr==0.:
+		Nfr=0
+		wffr=0.
 	debris=[]
 	
 	if Nfr>0:
@@ -291,7 +303,7 @@ def collision_solver(sim_pointer, collision):
 		# Interpolate neighbouring SPH debris catalogues and cluster in velocity space.
 		debris = interpolate_SPHcatalogue(coll_p,Nbig,Nfr)
 
-		# Normalize clustered debris masses to the debris budget M_fr.
+		# Normalize clustered debris masses to the retained debris budget M_fr.
 		mtotdb=0.
 		for deb in debris: mtotdb+=deb[2]
 		for deb in debris: deb[2]=deb[2]*mfr/mtotdb
@@ -1260,7 +1272,9 @@ def interpolate_SPHcatalogue(params,Nbig,Ncl):
 				m+=fragments[j,6]
 				xvmw+=fragments[j,:]*fragments[j,6]
 		xvmw=xvmw/m
-		clusters.append([xvmw[:3],xvmw[3:6],DUST_MASS_RETENTION_FACTOR*m,xvmw[7]])
+		# Keep raw cluster masses here. The dust retention factor is applied once
+		# to the target debris budget in collision_solver before normalization.
+		clusters.append([xvmw[:3],xvmw[3:6],m,xvmw[7]])
 	
 	plot=SHOW_DEBRIS_DIAGNOSTIC_PLOT
 	if plot:				
