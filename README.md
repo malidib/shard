@@ -1,6 +1,6 @@
 # SHARD
 
-This repository contains a cleaned Python driver for **SHARD**: a collision-resolving late-stage planet-formation workflow built on `REBOUND`/`mercurius`. The script detects N-body collisions, maps non-special embryo--embryo impacts onto an SPH outcome catalogue, interpolates the largest remnants, reconstructs small debris with mass-weighted KMeans clustering in velocity space, and writes collision/restart diagnostics.
+This repository contains a Python driver for **SHARD**: a collision-resolving late-stage planet-formation workflow built on `REBOUND`/`mercurius`. The script detects N-body collisions, maps non-special embryo--embryo impacts onto an SPH outcome catalogue, interpolates the largest remnants, reconstructs small debris with mass-weighted KMeans clustering in velocity space, and writes collision/restart diagnostics.
 
 This README describes practical use of the cleaned script:
 
@@ -29,12 +29,13 @@ For each detected collision, the script follows this workflow:
    - projectile water fraction, `wfp`.
 3. Interpolate `SPH.table` to obtain the two largest post-impact remnants.
 4. Apply survivor-count logic and drop survivors below the minimum resolved fragment mass.
-5. Enforce mass and water-budget consistency for survivors and debris.
-6. Interpolate neighboring SPH debris catalogues from `SPHDebris_catalogue/`.
-7. Cluster the debris in velocity space using mass-weighted `KMeans`.
-8. Map survivors and debris from the SPH collision frame back into the global REBOUND frame.
-9. Apply immediate energy-based reaccretion checks.
-10. Append debris particles, update active/test-particle status, and write diagnostics.
+5. Enforce mass and water-budget consistency for survivors and the SPH-derived debris reservoir.
+6. Apply `DUST_MASS_RETENTION_FACTOR` to decide what fraction of that debris reservoir is retained as resolved N-body debris.
+7. Interpolate neighboring SPH debris catalogues from `SPHDebris_catalogue/`.
+8. Cluster the retained debris in velocity space using mass-weighted `KMeans` and normalize the clusters to the retained debris budget.
+9. Map survivors and debris from the SPH collision frame back into the global REBOUND frame.
+10. Apply immediate energy-based reaccretion checks.
+11. Append debris particles, update active/test-particle status, and write diagnostics.
 
 ---
 
@@ -371,7 +372,7 @@ Important: `label_to_code()` currently recognizes only `JUP` and `SAT` as named 
 |---|---:|---|---|---|
 | `MIN_FRAGMENT_MASS_MEAR` | `5.5e-4` | Earth masses | Minimum resolved fragment mass. It is used both as a survivor cutoff and to compute `N_fr = floor(M_fr / MFM)`. | This is one of the most scientifically important knobs. Smaller values create more debris particles and are slower; larger values create fewer, more massive fragments and can promote faster reaccretion. |
 | `ACTIVE_DEBRIS_MASS_MSUN` | `3.0e-7` | solar masses | Mass threshold used when deciding how many newly created debris particles remain active rather than test particles. | `3.0e-7 M_sun` is about `0.1 M_earth`. Changing this changes self-gravity among debris and runtime. |
-| `DUST_MASS_RETENTION_FACTOR` | `0.5` | dimensionless factor | Multiplies raw cluster masses immediately after KMeans clustering, before final normalization to the debris mass budget. | In the current implementation this factor is applied uniformly to all clusters and then the clusters are renormalized to `M_fr`, so changing it does not change final debris masses by itself. It is retained to document the paper prescription and should only be changed with a clear test plan. |
+| `DUST_MASS_RETENTION_FACTOR` | `0.5` | dimensionless factor | Fraction of the SPH-predicted debris reservoir retained as resolved N-body debris after survivor budgets are computed and before cluster-mass normalization. | Must be between `0.0` and `1.0`. Use `1.0` for strict resolved debris mass conservation. Use `0.5` to insert half of the SPH debris mass and treat the other half as unresolved dust carrying the same mean debris water fraction. The number of debris clusters is still computed from the pre-dust `M_fr`, so this factor changes resolved debris mass, not the nominal cluster count except when set to `0.0`. |
 | `KMEANS_RANDOM_STATE` | `0` | integer or `None` | Random seed passed to scikit-learn `KMeans`. | Keep fixed for reproducibility. Changing it can alter debris cluster centroids and therefore subsequent dynamics. |
 | `ACTIVE_DEBRIS_MASS_MSUN` | `3.0e-7` | solar masses | Threshold for classifying debris as active in the current activation policy. | Verify the `sim.N_active` policy before changing this in production runs; REBOUND active/test-particle behavior is index-based. |
 
@@ -549,7 +550,7 @@ Before a production run, check the following:
 - The first row is the Sun.
 - Gas giants, if present, occupy particle indices `1..N_GAS_GIANTS`.
 - `sim.N_active` from the input file is sensible.
-- `MIN_FRAGMENT_MASS_MEAR` and `ACTIVE_DEBRIS_MASS_MSUN` are intentionally chosen.
+- `MIN_FRAGMENT_MASS_MEAR`, `DUST_MASS_RETENTION_FACTOR`, and `ACTIVE_DEBRIS_MASS_MSUN` are intentionally chosen.
 - Old outputs have been archived or removed.
 - Diagnostic plotting flags are `False` for unattended runs.
 - A short smoke test has completed before launching the full integration.
@@ -564,6 +565,7 @@ The following parameters are especially important for scientific comparisons:
 |---|---|
 | `MIN_FRAGMENT_MASS_MEAR` | Controls debris multiplicity and survivor cutoff. It can change reaccretion efficiency, damping, retained mass, and final particle spectrum. |
 | `ACTIVE_DEBRIS_MASS_MSUN` | Controls which debris particles are gravitationally active. This can affect debris-debris interactions and runtime. |
+| `DUST_MASS_RETENTION_FACTOR` | Controls how much of the SPH debris reservoir is retained as resolved N-body debris. Values below `1.0` remove mass and water into an unresolved dust component. |
 | `TIMESTEP_REBOUND` | Affects collision timing, close-encounter resolution, and energy behavior. |
 | `MERCURIUS_HILLFAC` | Affects the transition to close-encounter handling. |
 | `REMOVE_A_MAX_AU`, `REMOVE_A_MIN_AU`, `REMOVE_Q_MIN_AU` | Define the open-system boundary and therefore mass/water loss. |
@@ -591,9 +593,11 @@ Debris interpolation uses neighboring SPH grid corners without extrapolating out
 
 The loader currently suppresses some debris-file loading errors for non-crashed SPH entries. If a required file is missing, failure may occur later during interpolation. For production use, validate catalogue completeness before long runs.
 
-### Uniform dust factor
+### Dust retention factor
 
-`DUST_MASS_RETENTION_FACTOR` is applied before final debris-mass normalization. Because the normalization restores the debris budget, the current uniform factor does not by itself reduce the final total debris mass.
+`DUST_MASS_RETENTION_FACTOR` is applied to the target debris budget before clustered debris masses are normalized. Therefore `1.0` keeps the full SPH debris budget as resolved N-body fragments, while values below `1.0` remove the remaining mass and associated water into an unresolved dust component. The retained debris water fraction is unchanged; the resolved debris water mass scales with the retained mass.
+
+The cluster count is computed from the pre-dust debris mass budget. This keeps the fragment-resolution rule tied to the SPH debris reservoir while allowing the retained resolved mass to be reduced separately.
 
 ---
 
