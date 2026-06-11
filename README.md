@@ -80,22 +80,22 @@ project_root/
 │   ├── 001_000000.dat
 │   ├── 002_000001.dat
 │   └── ...
-└── 2_rnBurger20_eJS1/
-    └── 2_rnBurger20_eJS1.start
+└── scenario_name/
+    └── scenario_name.start
 ```
 
 The default configuration assumes:
 
 ```python
 PROJECT_ROOT = Path(".")
-SCENARIO_NAME = "2_rnBurger20_eJS1"
+SCENARIO_NAME = "scenario_name"
 START_TAG = "start"
 ```
 
 With those defaults, the starting file must be:
 
 ```text
-2_rnBurger20_eJS1/2_rnBurger20_eJS1.start
+scenario_name/scenario_name.start
 ```
 
 For restarts such as:
@@ -107,7 +107,7 @@ START_TAG = "t1000000"
 The script expects:
 
 ```text
-2_rnBurger20_eJS1/2_rnBurger20_eJS1.t1000000
+scenario_name/scenario_name.t1000000
 ```
 
 ### Note about `PROJECT_ROOT`
@@ -341,7 +341,7 @@ The following values are intended to be edited by users. They are defined near t
 | Parameter | Default | What it does | Practical guidance |
 |---|---:|---|---|
 | `PROJECT_ROOT` | `Path(".")` | Base directory for the SPH table, SPH debris directory, and scenario directory. | In the current script, leave this as `Path(".")` and run from the project root unless you have tested non-default path construction. |
-| `SCENARIO_NAME` | `"2_rnBurger20_eJS1"` | Name of the scenario folder and the prefix used for starting/checkpoint files. | Change this to run a different initial-condition folder. The folder and file prefix must match. |
+| `SCENARIO_NAME` | `"scenario_name"` | Name of the scenario folder and the prefix used for starting/checkpoint files. | Change this to run a different initial-condition folder. The folder and file prefix must match. |
 | `SCENARIO_DIR` | `PROJECT_ROOT / SCENARIO_NAME` | Derived path to the scenario directory. | Usually do not edit directly; change `PROJECT_ROOT` or `SCENARIO_NAME`. |
 | `START_TAG` | `"start"` | Selects the input file `<scenario>/<scenario>.<START_TAG>`. | Use `"start"` for an initial run or values like `"t1000000"` for restart checkpoints. |
 | `SPH_TABLE_PATH` | `PROJECT_ROOT / "SPH.table"` | Path to the SPH remnant/outcome table. | Change only if the table is stored elsewhere. Must match `CONSTANTS.py` grid definitions. |
@@ -511,7 +511,7 @@ Written before KMeans clustering. These files contain the interpolated weighted 
 1. Choose a checkpoint file, for example:
 
    ```text
-   2_rnBurger20_eJS1/2_rnBurger20_eJS1.t1000000
+   scenario_name/scenario_name.t1000000
    ```
 
 2. Set:
@@ -644,7 +644,7 @@ For the cleaned script's current paper-style default, use:
 
 ```python
 PROJECT_ROOT = Path(".")
-SCENARIO_NAME = "2_rnBurger20_eJS1"
+SCENARIO_NAME = "scenario_name"
 START_TAG = "start"
 
 TOTAL_INTEGRATION_YEARS = 1.0e8
